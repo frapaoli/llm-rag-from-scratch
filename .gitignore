@@ -1,0 +1,10 @@
+# Ignore .venv folder
+.venv
+# Ignore .env file
+.env
+# Ignore python cache files
+*__pycache__*
+# Ignore everything in the docs folder...
+docs/*
+# ... but not the sample_file.pdf
+!docs/sample_file.pdf
