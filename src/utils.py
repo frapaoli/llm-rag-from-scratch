@@ -100,29 +100,8 @@ def get_text_embedding(text: str, model: str, openai_api_key: str):
    return client.embeddings.create(input=[text], model=model).data[0].embedding
 
 def setup_db():
-    
-    try:
-        # Connect to the database
-        conn = psycopg2.connect(
-            host=constants.POSTGRES_HOST,
-            port=constants.POSTGRES_PORT,
-            user=constants.POSTGRES_USER,
-            password=constants.POSTGRES_PASSWORD
-        )
-    except psycopg2.Error as e:
-        raise e
-
-    # Create a cursor
-    cur = conn.cursor()
-
-    # Isolation level autocommit
-    conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-
-    # Create the DB if not exists yet
-    cur.execute(f"CREATE DATABASE IF NOT EXISTS {constants.POSTGRES_DATABASE}")
-
-    # Close connection to the DB
-    cur.close(), conn.close()
+    # TODO implement
+    pass
 
 def connect_to_db():
 

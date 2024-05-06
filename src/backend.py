@@ -5,7 +5,7 @@ from langchain_core.prompts.prompt import PromptTemplate
 
 def ingest_docs(docs_dir_path: str, openai_api_key: str):
 
-    # TODO fix this (DB should be created if not exists yet)
+    # TODO (DB should be created if not exists yet)
     # Setup the DB
     # utils.setup_db()
 
