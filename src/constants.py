@@ -3,7 +3,7 @@
 # Name of the LLM to be used
 MODEL_NAME = "llama3-70b-8192"
 # Number of messages to be stored by the conversational LLM
-CONVERSATION_MEMORY_LENGTH = 5
+CONVERSATION_MEMORY_LENGTH = 1
 # Temperature of the LLM outputs
 TEMPERATURE = 0
 # User question prompt template
@@ -46,7 +46,7 @@ MENU_SELECTION_TO_USER_OPTION_MAPPING = {
     '3': 'exit'
 }
 
-### EMBEDDINGS DATABASE ###
+### POSTGRESQL EMBEDDINGS DATABASE ###
 
 # Postgres host
 POSTGRES_HOST="localhost"
@@ -75,7 +75,17 @@ DB_CHECK_TUPLE_EXISTS_SQL_COMMAND = """
 SELECT * FROM embedding WHERE embedding = %s AND chunk = %s
 """
 
+### PINECONE EMBEDDINGS DATABASE ###
+
+# Pinecone index name
+PINECONE_INDEX_NAME = "llm-rag-from-scratch-index"
+# Pinecone namespace
+PINECONE_NAMESPACE = "llm-rag-from-scratch-namespace"
+
 ### RAG ###
 
+# Vector DB to be used for the RAG
+# Options: "postgres", "pinecone"
+VECTOR_DB_OPTION = "pinecone"
 # Number of most relevant chunks to be retrieved for the RAG
 SEMANTIC_SEARCH_TOP_K = 3

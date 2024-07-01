@@ -11,7 +11,9 @@ import heapq
 from langchain.chains.conversation.memory import ConversationBufferWindowMemory
 from langchain_groq import ChatGroq
 from langchain.chains import ConversationChain
-from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+import psycopg2.extras
+from pinecone import Pinecone
+from pinecone.data.index import Index
 
 def get_chunks_embeddings_from_docs(docs_dir_path: str, openai_api_key: str):
     # Load documents
@@ -78,6 +80,14 @@ def split_docs(docs: dict[str, list[Document]]):
     # Return the split documents
     return docs_chunks
 
+def split_text(text: str):
+    # Text splitter
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=constants.TEXT_SPLITTER_CHUNK_SIZE,
+        chunk_overlap=constants.TEXT_SPLITTER_CHUNK_OVERLAP
+    )
+    return text_splitter.split_text(text)
+
 def embed_docs_chunks(docs_chunks: dict[str, list[Document]], openai_api_key: str):
     # Dictionary of split document embeddings. Key is the document name, value is the split document embedding.
     # Each split document embedding is a list of embedding vectors.
@@ -99,11 +109,36 @@ def get_text_embedding(text: str, model: str, openai_api_key: str):
    # Create and return embedding of given text
    return client.embeddings.create(input=[text], model=model).data[0].embedding
 
-def setup_db():
-    # TODO implement
+def ingest_docs_postgres_db(
+    docs_names: list[str],
+    docs_chunks: dict[str, list[Document]],
+    docs_embeddings: dict[str, list[list[float]]]
+    ) -> None:
+
+    # TODO: PostgreSQL DB should be created if not exists yet
+    # Setup the PostgreSQL DB
+    # setup_postgres_db()
+
+    # Connect to the PostgreSQL DB
+    conn, cur = connect_to_postgres_db()
+
+    # Enable the usage of UUIDs
+    psycopg2.extras.register_uuid()
+
+    # Create DB table if not existing yet
+    cur.execute(constants.DB_CREATE_TABLE_SQL_COMMAND)
+
+    # Insert processed documents into the DB
+    insert_docs_into_postgres_db(docs_names, docs_chunks, docs_embeddings, conn, cur)
+
+    # Close connection to the DB
+    cur.close(), conn.close()
+
+def setup_postgres_db():
+    # TODO: implement this function
     pass
 
-def connect_to_db():
+def connect_to_postgres_db():
 
     try:
         # Connect to the database
@@ -123,7 +158,7 @@ def connect_to_db():
     # Return the connection and cursor
     return conn, cur
 
-def insert_docs_into_db(
+def insert_docs_into_postgres_db(
     docs_names: list[str],
     docs_chunks: dict[str, list[Document]],
     docs_embeddings: dict[str, list[list[float]]],
@@ -154,13 +189,50 @@ def insert_docs_into_db(
     # Commit changes to the DB
     conn.commit()
 
-def split_text(text: str):
-    # Text splitter
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=constants.TEXT_SPLITTER_CHUNK_SIZE,
-        chunk_overlap=constants.TEXT_SPLITTER_CHUNK_OVERLAP
+def ingest_docs_pinecone_db(
+    docs_names: list[str],
+    docs_chunks: dict[str, list[Document]],
+    docs_embeddings: dict[str, list[list[float]]],
+    pinecone_api_key: str
+    ) -> None:
+
+    # Connect to the Pinecone DB
+    pc = Pinecone(api_key=pinecone_api_key)
+    index = pc.Index(constants.PINECONE_INDEX_NAME)
+
+    # Insert processed documents into the DB
+    insert_docs_into_pinecone_db(docs_names, docs_chunks, docs_embeddings, index)
+
+def insert_docs_into_pinecone_db(
+    docs_names: list[str],
+    docs_chunks: dict[str, list[Document]],
+    docs_embeddings: dict[str, list[list[float]]],
+    index: Index
+    ) -> None:
+    
+    # List containing the records to be upserted into Pinecone DB
+    records = []
+
+    # Build list of records to be upserted into Pinecone DB
+    for doc_name in docs_names:
+
+        chunks = docs_chunks[doc_name]
+        embeddings = docs_embeddings[doc_name]
+
+        for chunk, embedding in zip(chunks, embeddings):
+            records.append(
+                {
+                    "id": str(uuid.uuid4()),
+                    "values": embedding,
+                    "metadata": {"chunk": chunk.page_content}
+                }
+            )
+    
+    # Upsert records into Pinecone DB
+    index.upsert(
+        vectors=records,
+        namespace=constants.PINECONE_NAMESPACE
     )
-    return text_splitter.split_text(text)
 
 def get_embeddings_chunks_from_db(cur: psycopg2.extensions.cursor):
     # Get all tuples from DB
@@ -172,9 +244,9 @@ def get_embeddings_chunks_from_db(cur: psycopg2.extensions.cursor):
     # Return the embeddings and chunks
     return db_embeddings, db_chunks
 
-def get_most_relevant_chunks(question_embeddings: list[list[float]], db_embeddings: list[list[float]], db_chunks: list[str]):
-    # Compute cosine similarity between question embeddings and DB embeddings
-    cosine_similarity_scores = [cosine_similarity(question_embeddings, db_embedding) for db_embedding in db_embeddings]
+def get_most_relevant_chunks(question_embedding: list[float], db_embeddings: list[list[float]], db_chunks: list[str]):
+    # Compute cosine similarity between question embedding and DB embeddings
+    cosine_similarity_scores = [cosine_similarity(question_embedding, db_embedding) for db_embedding in db_embeddings]
     # Get the indices of the most relevant chunks
     if constants.SEMANTIC_SEARCH_TOP_K > len(cosine_similarity_scores) or constants.SEMANTIC_SEARCH_TOP_K <= 0:
         raise ValueError("k must be greater than 0 and less than or equal to the length of the list")

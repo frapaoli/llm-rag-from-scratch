@@ -12,18 +12,28 @@ if __name__ == "__main__":
     # Get Groq and OpenAI API key from environment variables
     groq_api_key = os.getenv("GROQ_API_KEY")
     openai_api_key = os.getenv("OPENAI_API_KEY")
+    pinecone_api_key = os.getenv("PINECONE_API_KEY")
 
     # Get user option from menu
     user_option = menu.menu()
 
     # OPTION 1: Ingest documents
     if user_option == 'ingest_documents':
-        backend.ingest_docs(constants.DOCS_DIR_PATH, openai_api_key)
+        backend.ingest_docs(
+            docs_dir_path=constants.DOCS_DIR_PATH,
+            openai_api_key=openai_api_key,
+            pinecone_api_key=pinecone_api_key
+        )
 
     # OPTION 2: Ask question
     elif user_option == 'ask_question':
         question = input("Enter a question about the documents: ")
-        answer = backend.ask_question(question, groq_api_key, openai_api_key)
+        answer = backend.ask_question(
+            question=question,
+            groq_api_key=groq_api_key,
+            openai_api_key=openai_api_key,
+            pinecone_api_key=pinecone_api_key
+        )
         print(f"\nAnswer: {answer}\n")
 
     # OPTION 3: Exit
